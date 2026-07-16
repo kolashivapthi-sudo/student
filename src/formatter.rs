@@ -103,7 +103,8 @@ pub fn format_output(
         .iter()
         // Filter out temp variables (_t0, _t1, …) from display — they are
         // internal scaffolding, not meaningful to the student.
-        .filter(|eq| !is_temp_var(&eq.lhs))
+        // Hide if: lhs is a temp var, OR rhs is solely a temp var reference.
+        .filter(|eq| !is_temp_var(&eq.lhs) && !is_temp_var(&eq.rhs))
         .map(equation_to_string)
         .collect();
 

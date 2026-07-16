@@ -276,7 +276,6 @@ mod tests {
         //   first = 4
         //   second = first * 4  →  second = 16
         use types::{Equation, Expr, Operator};
-        use std::collections::HashMap;
         let equations = vec![
             Equation::new(Expr::Variable("first".into()), Expr::Number(4.0)),
             Equation::new(

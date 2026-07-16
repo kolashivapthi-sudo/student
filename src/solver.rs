@@ -28,8 +28,13 @@ fn check_expr_domain(expr: &Expr) -> Result<(), SolverError> {
     match expr {
         Expr::Variable(name) => {
             let lower = name.to_lowercase();
+            // Use whole-word matching: split on underscores and check each part.
+            // This prevents "second" matching "sec", "cosine" matching "cos", etc.
+            let parts: Vec<&str> = lower.split('_').collect();
             for kw in UNSUPPORTED_DOMAIN_KEYWORDS {
-                if lower.contains(kw) {
+                // Match only if the keyword equals the whole variable name
+                // OR equals one of its underscore-separated parts.
+                if lower == *kw || parts.iter().any(|p| p == kw) {
                     return Err(SolverError::UnsupportedDomain(name.clone()));
                 }
             }
@@ -49,6 +54,7 @@ fn check_expr_domain(expr: &Expr) -> Result<(), SolverError> {
 /// (contain variables), we flag it as potentially quadratic (degree 2).
 fn check_degree(equations: &[Equation]) -> Result<(), SolverError> {
     for eq in equations {
+        check_expr_degree(&eq.lhs, 1)?;
         check_expr_degree(&eq.rhs, 1)?;
     }
     Ok(())
@@ -291,7 +297,7 @@ fn invert_op(op: &Operator, result: f64, known: f64, unknown_is_left: bool) -> R
 
 /// Result of a successful solve: maps variable names to their values,
 /// plus a trace of the steps taken (for output display).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Solution {
     pub values: HashMap<String, f64>,
     pub steps:  Vec<String>,       // human-readable trace

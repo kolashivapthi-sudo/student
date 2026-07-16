@@ -345,7 +345,7 @@ fn find_lhs_variable(tokens: &[Token], from: usize) -> Expr {
 mod tests {
     use super::*;
     use crate::filter::FilterOutput;
-    use crate::types::{Equation, Expr, Operator, Token};
+    use crate::types::{Expr, Operator, Token};
 
     fn w(s: &str) -> Token  { Token::Word(s.to_string()) }
     fn n(v: f64)  -> Token  { Token::Number(v) }
@@ -364,6 +364,8 @@ mod tests {
     }
 
     /// "more than" → Add
+    /// Input: [john, 5, more, than, mary]  signals: [is]
+    /// "john is 5 more than mary" → john = 5 + mary
     #[test]
     fn test_more_than_maps_to_add() {
         let input = filter_out(
@@ -373,10 +375,13 @@ mod tests {
         let eqs = translate(input).unwrap();
         assert_eq!(eqs.len(), 1);
         assert_eq!(eqs[0].lhs, var("john"));
-        assert_eq!(eqs[0].rhs, binop(Operator::Add, num(5.0), var("more")));
+        // parse_expr reads: left=5.0, then "more than" op, right=mary
+        assert_eq!(eqs[0].rhs, binop(Operator::Add, num(5.0), var("mary")));
     }
 
     /// "less than" → Sub
+    /// Input: [price, 3, less, than, cost]  signals: [is]
+    /// "price is 3 less than cost" → price = 3 - cost
     #[test]
     fn test_less_than_maps_to_sub() {
         let input = filter_out(
@@ -385,7 +390,8 @@ mod tests {
         );
         let eqs = translate(input).unwrap();
         assert_eq!(eqs[0].lhs, var("price"));
-        assert_eq!(eqs[0].rhs, binop(Operator::Sub, num(3.0), var("less")));
+        // parse_expr reads: left=3.0, then "less than" op, right=cost
+        assert_eq!(eqs[0].rhs, binop(Operator::Sub, num(3.0), var("cost")));
     }
 
     /// "times" → Mul

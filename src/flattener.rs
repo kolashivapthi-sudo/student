@@ -1,4 +1,4 @@
-use crate::types::{Equation, Expr, Operator};
+use crate::types::{Equation, Expr};
 
 // ---------------------------------------------------------------------------
 // Flattener
@@ -236,8 +236,8 @@ mod tests {
     /// continues across equations so names never collide.
     #[test]
     fn test_multiple_equations_independent() {
-        // eq1: x = (a + b) * 2   →  _t0 = a+b,  x = _t0 * 2
-        // eq2: y = (c - d) + 1   →  _t1 = c-d,  y = _t1 + 1
+        // eq1: x = (a + b) * 2   →  _t0 = a+b,  x = _t0 * 2   (uses _t0, _t1)
+        // eq2: y = (c - d) + 1   →  _t2 = c-d,  y = _t2 + 1   (counter at 2)
         let eq1 = eq(
             var("x"),
             binop(Operator::Mul, binop(Operator::Add, var("a"), var("b")), num(2.0)),
@@ -252,8 +252,8 @@ mod tests {
         // eq1 intermediates
         assert_eq!(flat[0].lhs, var("_t0"));
         assert_eq!(flat[1].lhs, var("x"));
-        // eq2 intermediates — temp counter continues from _t1
-        assert_eq!(flat[2].lhs, var("_t1"));
+        // eq2 intermediates — counter continued, so _t2 (not _t1)
+        assert_eq!(flat[2].lhs, var("_t2"));
         assert_eq!(flat[3].lhs, var("y"));
     }
 

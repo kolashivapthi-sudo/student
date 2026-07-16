@@ -3,7 +3,8 @@
 pub enum Token {
     Word(String),
     Number(f64),
-    Operator(String),   // e.g. "more than", "times", "divided by"
+    #[allow(dead_code)]
+    Operator(String),   // reserved for future multi-word operator tokens
     Punctuation(char),  // e.g. '.', ',', '?'
 }
 
