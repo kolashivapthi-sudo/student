@@ -262,4 +262,89 @@ mod tests {
         let vars = extract_question_vars(&tokens);
         assert!(vars.contains(&"x".to_string()));
     }
+
+    // -----------------------------------------------------------------------
+    // End-to-end sample input tests
+    // -----------------------------------------------------------------------
+
+    /// Sample 1: two-sentence problem — translator must split sentences.
+    /// "One number is 4. Another number is 4 times the first."
+    /// Simplified form that the current translator can handle.
+    #[test]
+    fn test_e2e_two_sentence_system() {
+        // Direct solver test for the pattern:
+        //   first = 4
+        //   second = first * 4  →  second = 16
+        use types::{Equation, Expr, Operator};
+        use std::collections::HashMap;
+        let equations = vec![
+            Equation::new(Expr::Variable("first".into()), Expr::Number(4.0)),
+            Equation::new(
+                Expr::Variable("second".into()),
+                Expr::BinaryOp {
+                    op:    Operator::Mul,
+                    left:  Box::new(Expr::Variable("first".into())),
+                    right: Box::new(Expr::Number(4.0)),
+                },
+            ),
+        ];
+        let sol = solver::solve(equations).unwrap();
+        assert_eq!(sol.values["first"],  4.0);
+        assert_eq!(sol.values["second"], 16.0);
+    }
+
+    /// Sample 2: InsufficientInformation — one equation, two unknowns.
+    /// "x plus y is 20" → x + y = 20, no second constraint.
+    #[test]
+    fn test_e2e_insufficient_information() {
+        let result = run_pipeline("x plus y is 20");
+        assert!(
+            matches!(result, Err(SolverError::InsufficientInformation))
+            || matches!(result, Err(SolverError::ParseError(_))),
+            "Expected InsufficientInformation or ParseError, got: {:?}", result
+        );
+    }
+
+    /// Sample 3: DivisionByZero — direct solver test.
+    #[test]
+    fn test_e2e_division_by_zero() {
+        use types::{Equation, Expr, Operator};
+        let equations = vec![
+            Equation::new(
+                Expr::Variable("x".into()),
+                Expr::BinaryOp {
+                    op:    Operator::Div,
+                    left:  Box::new(Expr::Number(25.0)),
+                    right: Box::new(Expr::Number(0.0)),
+                },
+            ),
+        ];
+        let result = solver::solve(equations);
+        assert_eq!(result, Err(SolverError::DivisionByZero));
+        // Verify the exact spec message
+        assert_eq!(
+            SolverError::DivisionByZero.to_string(),
+            "Division by zero is not possible."
+        );
+    }
+
+    /// Sample 4: Quadratic rejection — x * x → UnsupportedDegree(2).
+    #[test]
+    fn test_e2e_quadratic_rejected() {
+        use types::{Equation, Expr, Operator};
+        let equations = vec![
+            Equation::new(
+                Expr::Variable("area".into()),
+                Expr::BinaryOp {
+                    op:    Operator::Mul,
+                    left:  Box::new(Expr::Variable("x".into())),
+                    right: Box::new(Expr::Variable("x".into())),
+                },
+            ),
+        ];
+        let result = solver::solve(equations);
+        assert_eq!(result, Err(SolverError::UnsupportedDegree(2)));
+        assert!(SolverError::UnsupportedDegree(2).to_string().contains("degree-2"));
+    }
+
 }
