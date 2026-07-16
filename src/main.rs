@@ -1,6 +1,7 @@
 mod types;
 mod error;
 mod lexer;
+mod filter;
 
 use error::SolverError;
 
