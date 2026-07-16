@@ -3,6 +3,7 @@ mod error;
 mod lexer;
 mod filter;
 mod translator;
+mod flattener;
 
 use error::SolverError;
 
