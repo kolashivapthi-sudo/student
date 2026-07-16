@@ -4,6 +4,7 @@ mod lexer;
 mod filter;
 mod translator;
 mod flattener;
+mod solver;
 
 use error::SolverError;
 
