@@ -2,6 +2,7 @@ mod types;
 mod error;
 mod lexer;
 mod filter;
+mod translator;
 
 use error::SolverError;
 
