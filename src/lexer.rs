@@ -224,4 +224,157 @@ mod tests {
             ]
         );
     }
+
+    // -----------------------------------------------------------------------
+    // Mandatory tests 1-10
+    // -----------------------------------------------------------------------
+
+    /// Req 1: Simple sentence tokenizes into correct word tokens.
+    /// "The sum is 10" → [the, sum, is, 10]
+    #[test]
+    fn test_simple_sentence_the_sum_is_10() {
+        let tokens = tokenize("The sum is 10");
+        assert_eq!(
+            tokens,
+            vec![
+                Token::Word("the".into()),
+                Token::Word("sum".into()),
+                Token::Word("is".into()),
+                Token::Number(10.0),
+            ]
+        );
+    }
+
+    /// Req 2: Digit numbers 20 and 100 parse correctly.
+    #[test]
+    fn test_digit_numbers_20_and_100() {
+        let tokens = tokenize("20 plus 100");
+        assert_eq!(
+            tokens,
+            vec![
+                Token::Number(20.0),
+                Token::Word("plus".into()),
+                Token::Number(100.0),
+            ]
+        );
+    }
+
+    /// Req 3: Number-words "two", "four", "twenty" parse to their numeric values.
+    #[test]
+    fn test_number_words_two_four_twenty() {
+        let tokens = tokenize("two plus four equals twenty");
+        assert_eq!(
+            tokens,
+            vec![
+                Token::Number(2.0),
+                Token::Word("plus".into()),
+                Token::Number(4.0),
+                Token::Word("equals".into()),
+                Token::Number(20.0),
+            ]
+        );
+    }
+
+    /// Req 4: Mixed digit literals and number-words in one sentence.
+    #[test]
+    fn test_mixed_digits_and_number_words() {
+        let tokens = tokenize("3 times twelve is thirty six");
+        assert_eq!(
+            tokens,
+            vec![
+                Token::Number(3.0),
+                Token::Word("times".into()),
+                Token::Number(12.0),
+                Token::Word("is".into()),
+                Token::Number(30.0),
+                Token::Number(6.0),
+            ]
+        );
+    }
+
+    /// Req 5: Period, comma, and question mark are each tokenized as Punctuation.
+    #[test]
+    fn test_all_three_punctuation_types() {
+        let tokens = tokenize("Wait, really. Are you sure?");
+        // period, comma, and question mark all appear
+        assert!(tokens.contains(&Token::Punctuation('.')));
+        assert!(tokens.contains(&Token::Punctuation(',')));
+        assert!(tokens.contains(&Token::Punctuation('?')));
+    }
+
+    /// Req 6: Case-insensitivity — "The" and "the" produce identical tokens.
+    #[test]
+    fn test_case_insensitivity_the() {
+        let upper = tokenize("The");
+        let lower = tokenize("the");
+        assert_eq!(upper, lower);
+        assert_eq!(upper, vec![Token::Word("the".into())]);
+    }
+
+    /// Req 7: Multiple spaces and extra whitespace do not break tokenization.
+    #[test]
+    fn test_extra_whitespace_ignored() {
+        let tokens = tokenize("john   has    5   apples");
+        assert_eq!(
+            tokens,
+            vec![
+                Token::Word("john".into()),
+                Token::Word("has".into()),
+                Token::Number(5.0),
+                Token::Word("apples".into()),
+            ]
+        );
+    }
+
+    /// Req 8: Empty string returns an empty token list without panicking.
+    #[test]
+    fn test_empty_string_returns_empty_vec() {
+        let tokens = tokenize("");
+        assert!(tokens.is_empty());
+    }
+
+    /// Req 9: Sentence with only numbers and no words.
+    #[test]
+    fn test_only_numbers_no_words() {
+        let tokens = tokenize("10 20 30");
+        assert_eq!(
+            tokens,
+            vec![
+                Token::Number(10.0),
+                Token::Number(20.0),
+                Token::Number(30.0),
+            ]
+        );
+    }
+
+    /// Req 10: Hyphenated word "twenty-five" — hyphen is skipped,
+    /// producing two separate tokens: Number(20) and Number(5).
+    /// This is the defined reasonable behaviour: hyphens are stripped,
+    /// each side is tokenized independently.
+    #[test]
+    fn test_hyphenated_number_word() {
+        let tokens = tokenize("twenty-five");
+        // hyphen stripped → "twenty" = 20.0, "five" = 5.0
+        assert_eq!(
+            tokens,
+            vec![
+                Token::Number(20.0),
+                Token::Number(5.0),
+            ]
+        );
+    }
+
+    /// Req 10 (words): Hyphenated plain word "well-known" splits into two Word tokens.
+    #[test]
+    fn test_hyphenated_plain_word() {
+        let tokens = tokenize("well-known fact");
+        assert_eq!(
+            tokens,
+            vec![
+                Token::Word("well".into()),
+                Token::Word("known".into()),
+                Token::Word("fact".into()),
+            ]
+        );
+    }
 }
