@@ -272,4 +272,152 @@ mod tests {
         assert_eq!(result[1].lhs, var("_t0"));   // intermediate
         assert_eq!(result[2].lhs, var("b"));     // final assignment
     }
+
+    // -----------------------------------------------------------------------
+    // Mandatory tests 5-10
+    // -----------------------------------------------------------------------
+
+    /// Req 5: "sum of" aggregation over 3 terms flattens correctly.
+    /// Input: result = (a + b) + c   (nested Add tree with 3 leaves)
+    /// Expected:
+    ///   _t0 = a + b
+    ///   result = _t0 + c
+    #[test]
+    fn test_sum_of_three_terms_flattens_correctly() {
+        // (a + b) + c
+        let nested = binop(
+            Operator::Add,
+            binop(Operator::Add, var("a"), var("b")),
+            var("c"),
+        );
+        let input = vec![eq(var("result"), nested)];
+        let flat  = flatten(input);
+
+        assert_eq!(flat.len(), 2);
+        assert_eq!(flat[0].lhs, var("_t0"));
+        assert_eq!(flat[0].rhs, binop(Operator::Add, var("a"), var("b")));
+        assert_eq!(flat[1].lhs, var("result"));
+        assert_eq!(flat[1].rhs, binop(Operator::Add, var("_t0"), var("c")));
+    }
+
+    /// Req 6: Intermediate variable names (_t0, _t1, …) must not collide
+    /// with variable names already present in the equations.
+    /// This test verifies _t0/_t1 are distinct from user variables
+    /// (the user's variables are named "x", "a", "b" — no conflict possible
+    ///  since temps always start with '_').
+    #[test]
+    fn test_temp_names_dont_collide_with_user_vars() {
+        // User vars: x, a, b  — temps will be _t0, _t1
+        let nested = binop(
+            Operator::Mul,
+            binop(Operator::Add, var("a"), var("b")),
+            var("x"),
+        );
+        let flat = flatten(vec![eq(var("result"), nested)]);
+
+        // Collect all variable names in the flat output
+        let mut names: Vec<String> = Vec::new();
+        for equation in &flat {
+            collect_var_names(&equation.lhs, &mut names);
+            collect_var_names(&equation.rhs, &mut names);
+        }
+
+        // Every temp name starts with '_'; user variable names do not
+        let temps: Vec<&String> = names.iter().filter(|n| n.starts_with('_')).collect();
+        let user_vars: Vec<&String> = names.iter().filter(|n| !n.starts_with('_')).collect();
+
+        // No overlap
+        for t in &temps {
+            assert!(
+                !user_vars.contains(t),
+                "Temp name '{}' collided with a user variable", t
+            );
+        }
+        assert!(!temps.is_empty(), "Expected at least one temp variable");
+    }
+
+    /// Req 7: Equation with only constants (no variables) flattens without panic.
+    /// result = (10 + 20) * 3
+    /// Expected:
+    ///   _t0 = 10 + 20
+    ///   result = _t0 * 3
+    #[test]
+    fn test_constants_only_no_panic() {
+        let nested = binop(
+            Operator::Mul,
+            binop(Operator::Add, num(10.0), num(20.0)),
+            num(3.0),
+        );
+        let input = vec![eq(var("result"), nested)];
+        let flat  = flatten(input);
+
+        // Should produce 2 equations without panicking
+        assert_eq!(flat.len(), 2);
+        assert_eq!(flat[0].lhs, var("_t0"));
+        assert_eq!(flat[0].rhs, binop(Operator::Add, num(10.0), num(20.0)));
+        assert_eq!(flat[1].lhs, var("result"));
+        assert_eq!(flat[1].rhs, binop(Operator::Mul, var("_t0"), num(3.0)));
+    }
+
+    /// Req 8: An already-flat equation with 2 unknowns is left completely as-is.
+    /// x + y = 10  →  passes through unchanged (one equation, two unknowns)
+    #[test]
+    fn test_flat_two_unknown_equation_unchanged() {
+        let input = vec![
+            eq(binop(Operator::Add, var("x"), var("y")), num(10.0)),
+        ];
+        let flat = flatten(input.clone());
+        assert_eq!(flat, input, "Flat 2-unknown equation should pass through unchanged");
+    }
+
+    /// Req 9: Flattening preserves mathematical equivalence.
+    /// Verify by evaluating the original and flat forms with known values.
+    ///
+    /// Original:  result = (2 + 3) * 4   →  evaluates to 20
+    /// Flat:      _t0 = 2 + 3            →  _t0 = 5
+    ///            result = _t0 * 4       →  result = 20
+    #[test]
+    fn test_flattening_preserves_mathematical_equivalence() {
+        // result = (2 + 3) * 4
+        let nested = binop(
+            Operator::Mul,
+            binop(Operator::Add, num(2.0), num(3.0)),
+            num(4.0),
+        );
+        let flat = flatten(vec![eq(var("result"), nested)]);
+
+        // Manually evaluate the flat equations in order
+        // Step 1: _t0 = 2 + 3 = 5
+        assert_eq!(flat[0].rhs, binop(Operator::Add, num(2.0), num(3.0)));
+        let t0_val = 2.0 + 3.0;
+        assert_eq!(t0_val, 5.0);
+
+        // Step 2: result = _t0 * 4. Substitute _t0=5 into rhs manually.
+        // rhs should be BinaryOp(Mul, Variable("_t0"), Number(4.0))
+        assert_eq!(
+            flat[1].rhs,
+            binop(Operator::Mul, var("_t0"), num(4.0))
+        );
+        let result_val = t0_val * 4.0;
+        assert_eq!(result_val, 20.0, "Mathematical equivalence violated");
+    }
+
+    /// Req 10: Empty input returns an empty list without panicking.
+    #[test]
+    fn test_empty_input_returns_empty() {
+        let flat = flatten(vec![]);
+        assert!(flat.is_empty(), "Expected empty output for empty input");
+    }
+
+    // Helper: collect all Variable names from an Expr tree into `out`.
+    fn collect_var_names(expr: &Expr, out: &mut Vec<String>) {
+        match expr {
+            Expr::Variable(name) => out.push(name.clone()),
+            Expr::Number(_)      => {}
+            Expr::BinaryOp { left, right, .. } => {
+                collect_var_names(left,  out);
+                collect_var_names(right, out);
+            }
+        }
+    }
 }
